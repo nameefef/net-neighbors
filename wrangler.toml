@@ -1,0 +1,13 @@
+name = "net-neighbors"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# KV 绑定 - 存储在线用户和留言
+kv_namespaces = [
+  { binding = "KV", id = "7b098c977b824068a2fa4628f9e1ef26" }
+]
+
+# 路由：neighbors.easonyin.xyz
+routes = [
+  { pattern = "neighbors.easonyin.xyz", custom_domain = true }
+]

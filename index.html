@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>网上邻居</title>
-<meta name="description" content="查看你的 IP 网段与邻近用户留言板">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--text-muted:#8b949e;--accent:#f0883e;--accent-dim:rgba(240,136,62,.15);--green:#3fb950;--blue:#58a6ff;--gray:#484f58;--radius:8px}
@@ -17,9 +16,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
 .header h1 span{color:var(--accent)}
 .badge{font-size:12px;background:var(--accent-dim);color:var(--accent);padding:4px 10px;border-radius:999px;border:1px solid rgba(240,136,62,.2);font-weight:500}
 
-/* Status Card */
+/* Card */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:16px}
 .card-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+
+/* IP grid */
 .ip-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:600px){.ip-grid{grid-template-columns:1fr}}
 .ip-item{background:rgba(255,255,255,.03);border-radius:6px;padding:12px 16px;border:1px solid transparent}
@@ -27,35 +28,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
 .ip-label{font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500}
 .ip-value{font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:16px;font-weight:600}
 .ip-value.loading{color:var(--text-muted);font-size:13px}
-.ip-value .subnet{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:6px}
+.ip-value .sub{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:6px}
 
-/* Neighbors list */
-.neighbor-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-.neighbor-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;font-size:14px;transition:background .15s}
-.neighbor-row:hover{background:rgba(255,255,255,.03)}
-.neighbor-row.you{background:var(--accent-dim)}
+/* Neighbor list */
+.nlist{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.nrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;font-size:14px;transition:background .15s}
+.nrow:hover{background:rgba(255,255,255,.03)}
+.nrow.you{background:var(--accent-dim)}
 .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot.online{background:var(--green);box-shadow:0 0 6px rgba(63,185,80,.35)}
 .dot.you{background:var(--accent);box-shadow:0 0 6px rgba(240,136,62,.35)}
-.dot.offline{background:var(--gray)}
 .addr{color:var(--text);font-family:"SF Mono",monospace;font-size:13px}
 .addr.you{color:var(--accent)}
-.row-tag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;margin-left:auto;line-height:1.5}
-.row-tag.online{background:rgba(63,185,80,.12);color:var(--green)}
-.row-tag.you{background:var(--accent-dim);color:var(--accent)}
-.row-tag.offline{color:var(--gray);background:rgba(255,255,255,.04)}
-.row-loc{font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.rtag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;margin-left:auto;line-height:1.5}
+.rtag.online{background:rgba(63,185,80,.12);color:var(--green)}
+.rtag.you{background:var(--accent-dim);color:var(--accent)}
+.rname{font-size:13px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 
-/* Bulletin */
+/* Messages */
 .msg{padding:12px 0;display:flex;gap:10px}
 .msg+.msg{border-top:1px solid var(--border)}
-.msg-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.msg-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
 .msg-body{flex:1;min-width:0}
 .msg-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:1px}
-.msg-name{font-size:13px;font-weight:600;color:var(--text)}
+.msg-n{font-size:13px;font-weight:600;color:var(--text)}
 .msg-ip{font-size:11px;color:var(--text-muted);font-family:"SF Mono",monospace}
-.msg-text{font-size:14px;color:var(--text-muted);line-height:1.6;word-break:break-word}
-.msg-time{font-size:11px;color:var(--gray);flex-shrink:0;align-self:flex-start}
+.msg-t{font-size:14px;color:var(--text-muted);line-height:1.6;word-break:break-word}
+.msg-tm{font-size:11px;color:var(--gray);flex-shrink:0;align-self:flex-start}
+.empty{text-align:center;padding:32px 0;color:var(--text-muted);font-size:14px;line-height:1.7}
 
 /* Input */
 .input-row{display:flex;gap:8px;padding-top:14px;margin-top:4px;border-top:1px solid var(--border)}
@@ -66,14 +66,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
 .btn:hover{opacity:.85}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 
-/* Empty state */
-.empty-state{text-align:center;padding:32px 0;color:var(--text-muted);font-size:14px;line-height:1.7}
-.empty-state strong{color:var(--text)}
+/* Name setup */
+.name-row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.name-row input{background:#0d1117;border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;color:var(--text);outline:none;transition:border .2s;width:160px}
+.name-row input:focus{border-color:var(--accent)}
+.name-row input::placeholder{color:var(--gray)}
 
 /* Footer */
 .footer{margin-top:32px;padding:20px 0;text-align:center;font-size:12px;color:var(--gray);border-top:1px solid var(--border)}
 .footer a{color:var(--accent);text-decoration:none}
-.footer a:hover{text-decoration:underline}
 
 /* Toast */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);color:var(--text);padding:10px 20px;border-radius:999px;font-size:13px;border:1px solid var(--border);opacity:0;transition:all .35s;z-index:999;pointer-events:none}
@@ -84,10 +85,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
 
 <div class="container">
 
-  <!-- Header -->
   <div class="header">
     <h1>🏘️ <span>网上邻居</span></h1>
-    <span class="badge">/24 社区公告板</span>
+    <span class="badge" id="subnetBadge">加载中…</span>
   </div>
 
   <!-- IP Status -->
@@ -96,11 +96,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
     <div class="ip-grid">
       <div class="ip-item active">
         <div class="ip-label">你的公网 IP</div>
-        <div class="ip-value loading" id="yourIp"><span style="font-weight:400">检测中…</span></div>
+        <div class="ip-value loading" id="yourIp">检测中…</div>
       </div>
       <div class="ip-item active">
         <div class="ip-label">所属 /24 网段</div>
-        <div class="ip-value loading" id="yourSubnet"><span style="font-weight:400">检测中…</span></div>
+        <div class="ip-value loading" id="yourSubnet">检测中…</div>
       </div>
     </div>
   </div>
@@ -108,37 +108,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Pin
   <!-- Neighbors -->
   <div class="card">
     <div class="card-title">👥 同网段邻居 <span id="onlineCount" style="font-weight:400;color:var(--text-muted)"></span></div>
-    <div class="neighbor-list" id="neighborList">
-      <div style="text-align:center;padding:12px 0;color:var(--text-muted);font-size:13px">等待 IP 检测完成…</div>
+    <div class="nlist" id="neighborList">
+      <div class="empty">加载中…</div>
     </div>
   </div>
 
   <!-- Bulletin -->
   <div class="card">
-    <div class="card-title">
-      💬 公告板
-      <span style="font-weight:400;color:var(--text-muted);text-transform:none;font-size:12px" id="boardId"></span>
+    <div class="card-title">💬 公告板</div>
+
+    <div class="name-row">
+      <span style="font-size:13px;color:var(--text-muted)">你的昵称：</span>
+      <input id="nameInput" placeholder="匿名邻居" maxlength="12">
     </div>
-    <div id="msgList"></div>
+
+    <div id="msgList"><div class="empty">加载留言中…</div></div>
+
     <div class="input-row">
-      <input id="msgInput" placeholder="说点什么…（本地存储，只存你自己）" maxlength="200">
-      <button class="btn" id="postBtn" disabled onclick="postMsg()">发布</button>
+      <input id="msgInput" placeholder="说点什么…" maxlength="500">
+      <button class="btn" id="postBtn" onclick="postMsg()">发布</button>
     </div>
   </div>
 
   <div class="footer">
-    Made by Eason · 纯前端，不留存你的 IP · <a href="https://github.com/nameefef/net-neighbors" target="_blank">GitHub</a>
+    Made by Eason · 真实数据，同网段实时共享 ·
+    <a href="https://github.com/nameefef/net-neighbors" target="_blank">GitHub</a>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-let myIp = '';
-let mySubnet = '';
-const STORAGE_KEY = 'net_neighbor_msgs';
+const API = 'https://neighbors.easonyin.xyz';
 
-// --- Toast ---
+let myIp = '';
+let myName = localStorage.getItem('nn_name') || '';
+
+// Init name input
+const nameInput = document.getElementById('nameInput');
+nameInput.value = myName;
+nameInput.addEventListener('change', () => {
+  myName = nameInput.value.trim() || '匿名邻居';
+  localStorage.setItem('nn_name', myName);
+  // heartbeat with new name
+  heartbeat();
+});
+
+// Toast
 function toast(text) {
   const t = document.getElementById('toast');
   t.textContent = text;
@@ -147,38 +163,104 @@ function toast(text) {
   t._t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// --- Load messages from localStorage ---
-function loadMsgs() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
+// Heartbeat (every 30s)
+async function heartbeat() {
+  if (!myIp) return;
+  try {
+    await fetch(`${API}/api/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: myName || '匿名邻居' }),
+    });
+  } catch(e) {}
 }
 
-function saveMsgs(msgs) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
-}
+// Fetch neighbors
+async function loadNeighbors() {
+  try {
+    const r = await fetch(`${API}/api/neighbors`);
+    const d = await r.json();
+    myIp = d.yourIp;
+    document.getElementById('yourIp').innerHTML = `${d.yourIp} <span class="sub">/24</span>`;
+    document.getElementById('yourSubnet').textContent = d.subnet;
+    document.getElementById('subnetBadge').textContent = d.subnet;
 
-function renderMsgs() {
-  const list = document.getElementById('msgList');
-  const msgs = loadMsgs();
-  if (msgs.length === 0) {
-    list.innerHTML = `<div class="empty-state">还没有留言。<br>写一条试试 👇</div>`;
-    return;
+    const list = document.getElementById('neighborList');
+    document.getElementById('onlineCount').textContent = `· ${d.onlineCount} 在线`;
+    list.innerHTML = d.users.map(u => {
+      const isYou = u.ip === d.yourIp;
+      return `<div class="nrow ${isYou ? 'you' : ''}">
+        <span class="dot online"></span>
+        <span class="addr ${isYou ? 'you' : ''}">${esc(u.ip)}</span>
+        <span class="rname">${esc(u.name)}</span>
+        <span class="rtag online">${isYou ? '你' : '在线'}</span>
+      </div>`;
+    }).join('');
+
+    // Start heartbeat loop
+    await heartbeat();
+    setInterval(heartbeat, 30000);
+
+  } catch(e) {
+    document.getElementById('yourIp').textContent = '⚠️ 后端连接失败';
+    document.getElementById('neighborList').innerHTML = '<div class="empty">无法连接到服务器</div>';
   }
-  list.innerHTML = msgs.slice().reverse().map(m => {
+}
+
+// Fetch messages
+async function loadMsgs() {
+  try {
+    const r = await fetch(`${API}/api/msgs`);
+    const d = await r.json();
+    const list = document.getElementById('msgList');
+    if (!d.messages || d.messages.length === 0) {
+      list.innerHTML = '<div class="empty">还没有留言。<br>写一条试试 👇</div>';
+      return;
+    }
     const colors = ['#f0883e','#58a6ff','#3fb950','#da3633','#bc8cff'];
-    const c = colors[m.name.charCodeAt(0) % colors.length];
-    return `<div class="msg">
-      <div class="msg-avatar" style="background:${c}">${m.name[0]}</div>
-      <div class="msg-body">
-        <div class="msg-hd">
-          <span class="msg-name">${esc(m.name)}</span>
-          <span class="msg-ip">${esc(m.ip)}</span>
+    list.innerHTML = d.messages.map(m => {
+      const c = colors[m.name.charCodeAt(0) % colors.length];
+      return `<div class="msg">
+        <div class="msg-av" style="background:${c}">${esc(m.name[0] || '?')}</div>
+        <div class="msg-body">
+          <div class="msg-hd">
+            <span class="msg-n">${esc(m.name)}</span>
+            <span class="msg-ip">${esc(m.ip)}</span>
+          </div>
+          <div class="msg-t">${esc(m.text)}</div>
         </div>
-        <div class="msg-text">${esc(m.text)}</div>
-      </div>
-      <span class="msg-time">${m.time}</span>
-    </div>`;
-  }).join('');
+        <span class="msg-tm">${esc(m.time)}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('msgList').innerHTML = '<div class="empty">加载留言失败</div>';
+  }
+}
+
+// Post message
+async function postMsg() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const btn = document.getElementById('postBtn');
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/api/msgs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        name: myName || '匿名邻居',
+      }),
+    });
+    if (!r.ok) throw new Error('发布失败');
+    input.value = '';
+    toast('留言已发布 📨');
+    await loadMsgs();
+  } catch(e) {
+    toast('发布失败，请重试');
+  }
+  btn.disabled = false;
 }
 
 function esc(s) {
@@ -187,116 +269,16 @@ function esc(s) {
   return d.innerHTML;
 }
 
-function postMsg() {
-  const input = document.getElementById('msgInput');
-  const text = input.value.trim();
-  if (!text || !myIp) return;
-  const msgs = loadMsgs();
-  const name = localStorage.getItem('net_neighbor_name') || ('邻居' + Math.random().toString(36).slice(2,6));
-  if (!localStorage.getItem('net_neighbor_name')) localStorage.setItem('net_neighbor_name', name);
-  msgs.push({
-    name,
-    ip: myIp,
-    text,
-    time: new Date().toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
-    ts: Date.now()
-  });
-  saveMsgs(msgs);
-  renderMsgs();
-  input.value = '';
-  toast('已保存到本地 💾');
-}
-
-// --- Generate fake neighbors based on real IP ---
-function generateNeighbors(ip, subnet) {
-  const parts = ip.split('.');
-  const base = parseInt(parts[3], 10);
-  const ips = [];
-  const names = ['拼车小张','机房老王','小区阿花','技术宅小陈','猫奴小李','楼上阿杰','网管大刘','前端小林'];
-  const locs = ['同宽带','同机房','同小区','同办公区'];
-
-  for (let i = 0; i < 8; i++) {
-    let offset;
-    if (i < 4) offset = - (4 - i);
-    else offset = (i - 3);
-    let ipNum = base + offset;
-    if (ipNum < 1) ipNum = 254 + ipNum;
-    if (ipNum > 254) ipNum = ipNum - 254;
-    ips.push({
-      ip: `${parts[0]}.${parts[1]}.${parts[2]}.${ipNum}`,
-      name: names[i],
-      loc: locs[i % locs.length],
-      online: Math.random() > 0.3,
-      isYou: (ipNum === base)
-    });
-  }
-  // ensure "you" is at position matching real IP
-  const youIdx = ips.findIndex(x => x.isYou);
-  if (youIdx > -1 && ips[0].ip !== ip) {
-    ips[youIdx].ip = ip;
-    ips[youIdx].name = '你';
-    ips[youIdx].loc = '当前网络';
-    ips[youIdx].online = true;
-  }
-  // sort: you first, then online, then offline
-  ips.sort((a,b) => {
-    if (a.isYou) return -1;
-    if (b.isYou) return 1;
-    if (a.online && !b.online) return -1;
-    if (!a.online && b.online) return 1;
-    return 0;
-  });
-  return ips;
-}
-
-function renderNeighbors(neighbors) {
-  const list = document.getElementById('neighborList');
-  const online = neighbors.filter(n => n.online).length;
-  document.getElementById('onlineCount').textContent = `· ${online} 在线`;
-  list.innerHTML = neighbors.map(n => {
-    const cls = n.isYou ? 'you' : (n.online ? 'online' : 'offline');
-    return `<div class="neighbor-row ${n.isYou ? 'you' : ''}">
-      <span class="dot ${cls}"></span>
-      <span class="addr ${n.isYou ? 'you' : ''}">${esc(n.ip)}</span>
-      <span class="row-loc">${esc(n.loc)}</span>
-      <span class="row-tag ${cls}">${n.isYou ? '你' : (n.online ? '在线' : '离线')}</span>
-    </div>`;
-  }).join('');
-}
-
-// --- Fetch real IP ---
-async function fetchIP() {
-  const ipEl = document.getElementById('yourIp');
-  const subnetEl = document.getElementById('yourSubnet');
-  try {
-    const r = await fetch('https://api.ipify.org?format=json');
-    const d = await r.json();
-    myIp = d.ip;
-    const parts = myIp.split('.');
-    mySubnet = `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
-    ipEl.innerHTML = `${myIp} <span class="subnet">/24</span>`;
-    subnetEl.innerHTML = `${mySubnet}`;
-    document.getElementById('boardId').textContent = `· ${mySubnet}`;
-
-    // generate & render neighbors
-    const neighbors = generateNeighbors(myIp, mySubnet);
-    renderNeighbors(neighbors);
-
-    // enable post
-    document.getElementById('postBtn').disabled = false;
-    renderMsgs();
-  } catch(e) {
-    ipEl.innerHTML = '<span style="font-weight:400;color:var(--gray)">获取失败，请检查网络</span>';
-    subnetEl.innerHTML = '<span style="font-weight:400;color:var(--gray)">—</span>';
-  }
-}
-
-fetchIP();
-
 // Enter to post
 document.getElementById('msgInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') postMsg();
 });
+
+// Init
+loadNeighbors();
+loadMsgs();
+// Refresh messages every 10s
+setInterval(loadMsgs, 10000);
 </script>
 
 </body>
