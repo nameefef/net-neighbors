@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>网上邻居 — 发现网络上离你最近的人</title>
+<meta name="description" content="基于 IP 网段的邻近用户发现功能，无需位置权限即可找到同网段的邻居们。合租拼车、同机房交流、小区互通。">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --amber-50: #FFFBEB;
+    --amber-100: #FEF3C7;
+    --amber-200: #FDE68A;
+    --amber-400: #FBBF24;
+    --amber-600: #D97706;
+    --amber-700: #B45309;
+    --blue-50: #EFF6FF;
+    --blue-100: #DBEAFE;
+    --blue-500: #3B82F6;
+    --blue-600: #2563EB;
+    --navy-700: #1E3A5F;
+    --navy-800: #0F2440;
+    --navy-900: #071426;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --red-500: #EF4444;
+    --green-500: #10B981;
+    --purple-500: #8B5CF6;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -1px rgba(0,0,0,.04);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Navigation ===== */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255,255,255,.72);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    transition: box-shadow .3s;
+  }
+  nav.scrolled { box-shadow: var(--shadow-md); }
+  .nav-inner {
+    max-width: 1120px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 60px;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 18px; color: var(--navy-700); text-decoration: none;
+  }
+  .nav-logo svg { width: 26px; height: 26px; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a {
+    text-decoration: none; font-size: 14px; font-weight: 500; color: var(--gray-600);
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: var(--amber-600); }
+
+  /* ===== Hero ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    background: linear-gradient(165deg, var(--navy-900) 0%, var(--navy-700) 40%, #2D4A6A 70%, #3A5A7A 100%);
+  }
+  .hero-grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .hero-dots {
+    position: absolute; inset: 0;
+    background: radial-gradient(2px 2px at 20% 30%, rgba(251,191,36,.3), transparent),
+                radial-gradient(2px 2px at 80% 20%, rgba(251,191,36,.2), transparent),
+                radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,.3), transparent),
+                radial-gradient(1px 1px at 60% 50%, rgba(255,255,255,.2), transparent),
+                radial-gradient(1px 1px at 10% 80%, rgba(251,191,36,.2), transparent),
+                radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,.15), transparent);
+    background-size: 200px 200px;
+  }
+  .hero-content {
+    position: relative; z-index: 1; text-align: center;
+    padding: 0 24px; max-width: 720px;
+    opacity: 0; transform: translateY(24px); animation: heroIn 1s ease-out forwards;
+  }
+  @keyframes heroIn { to { opacity: 1; transform: translateY(0); } }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 16px; border-radius: 9999px;
+    background: rgba(251,191,36,.15); backdrop-filter: blur(4px);
+    color: var(--amber-400); font-size: 13px; font-weight: 500;
+    border: 1px solid rgba(251,191,36,.2);
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: clamp(2.8rem, 7vw, 4.5rem);
+    font-weight: 800; letter-spacing: -.02em;
+    background: linear-gradient(135deg, #FEF3C7 0%, #FCD34D 30%, #FBBF24 60%, #F59E0B 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15; margin-bottom: 16px;
+  }
+  .hero-sub {
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    color: rgba(255,255,255,.7);
+    max-width: 560px; margin: 0 auto 32px;
+    line-height: 1.7;
+  }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 28px; border-radius: 9999px;
+    font-size: 15px; font-weight: 600; text-decoration: none;
+    transition: all .25s; cursor: pointer; border: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #fff; box-shadow: 0 4px 14px rgba(217,119,6,.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(217,119,6,.45);
+  }
+  .btn-outline {
+    background: transparent; color: rgba(255,255,255,.85);
+    border: 1.5px solid rgba(255,255,255,.2);
+  }
+  .btn-outline:hover {
+    border-color: var(--amber-400); color: var(--amber-400);
+    background: rgba(251,191,36,.08);
+  }
+
+  /* ===== Section Common ===== */
+  section { padding: 96px 24px; }
+  .section-inner { max-width: 1120px; margin: 0 auto; }
+
+  .section-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--amber-600); margin-bottom: 8px;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 800; color: var(--navy-800);
+    margin-bottom: 12px; letter-spacing: -.02em;
+  }
+  .section-desc {
+    font-size: 1.05rem; color: var(--gray-500);
+    max-width: 640px; line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  /* ===== Concept ===== */
+  #concept { background: #fff; }
+  .concept-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+  }
+  .concept-visual {
+    background: linear-gradient(135deg, var(--amber-50), var(--blue-50));
+    border-radius: 20px; padding: 40px; position: relative;
+    border: 1px solid rgba(0,0,0,.04);
+  }
+  .concept-visual::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 50%, rgba(251,191,36,.08), transparent 60%);
+    border-radius: 20px;
+  }
+  .ip-graph { position: relative; z-index: 1; }
+  .ip-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 10px;
+    margin-bottom: 8px; font-size: 14px; font-family: 'SF Mono', 'Fira Code', monospace;
+    transition: all .3s; cursor: default;
+  }
+  .ip-row.online {
+    background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.15);
+  }
+  .ip-row.you {
+    background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.25);
+    font-weight: 700;
+  }
+  .ip-row.offline {
+    background: rgba(0,0,0,.02); border: 1px solid transparent;
+    color: var(--gray-400);
+  }
+  .ip-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .ip-dot.online { background: var(--green-500); box-shadow: 0 0 6px rgba(16,185,129,.4); }
+  .ip-dot.you { background: var(--amber-600); box-shadow: 0 0 6px rgba(217,119,6,.4); }
+  .ip-dot.offline { background: var(--gray-300); }
+  .ip-addr { color: var(--gray-700); }
+  .ip-addr.you { color: var(--amber-700); }
+  .ip-tag {
+    font-size: 11px; padding: 2px 10px; border-radius: 9999px; font-weight: 500; font-family: inherit;
+    margin-left: auto;
+  }
+  .ip-tag.online { background: rgba(16,185,129,.12); color: #059669; }
+  .ip-tag.you { background: rgba(217,119,6,.12); color: #B45309; }
+  .ip-tag.offline { background: rgba(0,0,0,.04); color: var(--gray-400); }
+
+  .concept-text h3 { font-size: 1.25rem; font-weight: 700; color: var(--navy-700); margin-bottom: 12px; }
+  .concept-text p { color: var(--gray-600); line-height: 1.8; margin-bottom: 16px; }
+  .concept-highlights { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 9999px;
+    font-size: 13px; font-weight: 500;
+    background: var(--amber-50); color: var(--amber-700);
+    border: 1px solid rgba(217,119,6,.12);
+  }
+
+  /* ===== Use Cases ===== */
+  #cases { background: var(--gray-50); }
+  .cases-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .case-card {
+    background: #fff; border-radius: 16px; padding: 28px;
+    border: 1px solid rgba(0,0,0,.06);
+    transition: all .3s; cursor: default;
+    box-shadow: var(--shadow-sm);
+  }
+  .case-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(217,119,6,.12);
+  }
+  .case-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 16px;
+  }
+  .case-card h4 {
+    font-size: 1.05rem; font-weight: 700; color: var(--navy-700);
+    margin-bottom: 8px;
+  }
+  .case-card p {
+    font-size: 14px; color: var(--gray-500); line-height: 1.7;
+  }
+
+  /* ===== Design Philosophy ===== */
+  #philosophy { background: #fff; }
+  .phil-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+    margin-bottom: 48px;
+  }
+  .phil-card {
+    text-align: center; padding: 36px 20px; border-radius: 16px;
+    border: 1px solid rgba(0,0,0,.06); transition: all .3s;
+  }
+  .phil-card:hover {
+    border-color: rgba(59,130,246,.12);
+    box-shadow: var(--shadow-md);
+  }
+  .phil-num {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 18px; font-weight: 700; color: #fff;
+  }
+  .phil-card h4 { font-size: 1.1rem; font-weight: 700; color: var(--navy-700); margin-bottom: 8px; }
+  .phil-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+
+  /* ===== How It Works ===== */
+  #how { background: var(--gray-50); }
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    counter-reset: step;
+  }
+  .step {
+    counter-increment: step; position: relative;
+    background: #fff; border-radius: 16px; padding: 32px 24px;
+    border: 1px solid rgba(0,0,0,.06); box-shadow: var(--shadow-sm);
+  }
+  .step::before {
+    content: counter(step);
+    position: absolute; top: 20px; right: 20px;
+    font-size: 2.5rem; font-weight: 800;
+    color: rgba(217,119,6,.08);
+    line-height: 1;
+  }
+  .step-icon { font-size: 28px; margin-bottom: 14px; display: block; }
+  .step h4 { font-size: 1rem; font-weight: 700; color: var(--navy-700); margin-bottom: 6px; }
+  .step p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+  .step-arrow {
+    display: none;
+  }
+
+  /* ===== Demo / Bulletin ===== */
+  #demo { background: #fff; }
+  .bulletin-demo {
+    background: linear-gradient(135deg, var(--amber-50), var(--blue-50));
+    border-radius: 20px; padding: 48px; text-align: center;
+    border: 1px solid rgba(0,0,0,.04);
+  }
+  .bulletin-title { font-size: 1.2rem; font-weight: 700; color: var(--navy-700); margin-bottom: 8px; }
+  .bulletin-sub { font-size: 14px; color: var(--gray-500); margin-bottom: 24px; }
+  .bulletin-board {
+    background: #fff; border-radius: 12px; padding: 20px;
+    max-width: 500px; margin: 0 auto;
+    box-shadow: var(--shadow); border: 1px solid rgba(0,0,0,.06);
+    text-align: left;
+  }
+  .msg { display: flex; gap: 12px; padding: 12px 0; }
+  .msg + .msg { border-top: 1px solid var(--gray-100); }
+  .msg-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 2px;
+  }
+  .msg-name { font-size: 13px; font-weight: 600; color: var(--navy-700); }
+  .msg-ip { font-size: 11px; color: var(--gray-400); font-family: 'SF Mono', 'Fira Code', monospace; }
+  .msg-text { font-size: 14px; color: var(--gray-600); line-height: 1.5; }
+  .msg-time { font-size: 11px; color: var(--gray-400); flex-shrink: 0; align-self: center; }
+  .msg-input-row {
+    display: flex; gap: 8px; margin-top: 16px;
+    border-top: 1px solid var(--gray-100); padding-top: 16px;
+  }
+  .msg-input {
+    flex: 1; padding: 10px 14px; border: 1px solid var(--gray-300);
+    border-radius: 9999px; font-size: 14px; outline: none;
+    transition: border-color .2s; background: var(--gray-50);
+  }
+  .msg-input:focus { border-color: var(--amber-400); background: #fff; }
+  .msg-btn {
+    padding: 10px 20px; border-radius: 9999px; border: none;
+    background: var(--amber-600); color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .msg-btn:hover { background: var(--amber-700); }
+
+  /* ===== FAQ ===== */
+  #faq { background: var(--gray-50); }
+  .faq-list { max-width: 720px; margin: 0 auto; }
+  .faq-item {
+    background: #fff; border-radius: 12px; padding: 20px 24px;
+    margin-bottom: 10px; border: 1px solid rgba(0,0,0,.06);
+    cursor: pointer; transition: all .2s;
+  }
+  .faq-item:hover { border-color: rgba(217,119,6,.12); }
+  .faq-q {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 15px; font-weight: 600; color: var(--navy-700);
+  }
+  .faq-q svg { transition: transform .3s; flex-shrink: 0; }
+  .faq-item.open .faq-q svg { transform: rotate(180deg); }
+  .faq-a {
+    max-height: 0; overflow: hidden; transition: all .3s ease;
+    font-size: 14px; color: var(--gray-500); line-height: 1.7;
+  }
+  .faq-item.open .faq-a { max-height: 200px; padding-top: 12px; }
+
+  /* ===== Footer ===== */
+  footer {
+    background: var(--navy-900); padding: 48px 24px 32px;
+    color: rgba(255,255,255,.5); text-align: center;
+    font-size: 13px;
+  }
+  footer a { color: var(--amber-400); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .footer-brand { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .footer-ipsum {
+    max-width: 400px; margin: 0 auto 20px;
+    line-height: 1.7;
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    section { padding: 64px 20px; }
+    .nav-links { display: none; }
+    .concept-grid { grid-template-columns: 1fr; gap: 32px; }
+    .phil-grid { grid-template-columns: 1fr; gap: 16px; }
+    .steps-grid { grid-template-columns: 1fr; gap: 16px; }
+    .bulletin-demo { padding: 28px 20px; }
+    .case-card { padding: 24px; }
+  }
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .phil-grid { grid-template-columns: repeat(2, 1fr); }
+    .steps-grid { grid-template-columns: repeat(2, 1fr); .step:last-child { grid-column: 1 / -1; max-width: 50%; margin: 0 auto; } }
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--navy-900); color: #fff;
+    padding: 12px 24px; border-radius: 9999px;
+    font-size: 14px; opacity: 0; transition: all .4s; z-index: 200;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="7" r="5" stroke="#D97706" stroke-width="1.8" fill="rgba(217,119,6,.08)"/><circle cx="7" cy="20" r="3.5" stroke="#3B82F6" stroke-width="1.6" fill="rgba(59,130,246,.08)"/><circle cx="19" cy="20" r="3.5" stroke="#3B82F6" stroke-width="1.6" fill="rgba(59,130,246,.08)"/><path d="M13 12l-4 6M13 12l4 6" stroke="rgba(0,0,0,.15)" stroke-width="1.2"/></svg>
+      网上邻居
+    </a>
+    <div class="nav-links">
+      <a href="#concept">概念</a>
+      <a href="#cases">场景</a>
+      <a href="#philosophy">理念</a>
+      <a href="#how">原理</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="home">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-dots"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><circle cx="12" cy="12" r="3"/></svg>
+      基于 IP 网段的弱关系连接
+    </div>
+    <h1>网上邻居</h1>
+    <p class="hero-sub">
+      不依赖位置权限，不暴露精确坐标。仅凭一个 IP 网段，就能发现"网络上离你最近的人"——合租拼车、同机房交流、邻里互通，让同一网络环境下的你们自然相遇。
+    </p>
+    <div class="hero-actions">
+      <a href="#concept" class="btn btn-primary">了解详情</a>
+      <a href="#demo" class="btn btn-outline">体验留言板</a>
+    </div>
+  </div>
+</section>
+
+<!-- Concept -->
+<section id="concept">
+  <div class="section-inner">
+    <div class="concept-grid">
+      <div class="concept-visual">
+        <div class="ip-graph">
+          <div class="ip-row you">
+            <span class="ip-dot you"></span>
+            <span class="ip-addr you">192.168.1.0/24</span>
+            <span class="ip-tag you">你</span>
+          </div>
+          <div class="ip-row online">
+            <span class="ip-dot online"></span>
+            <span class="ip-addr">192.168.1.14</span>
+            <span class="ip-tag online">在线</span>
+          </div>
+          <div class="ip-row online">
+            <span class="ip-dot online"></span>
+            <span class="ip-addr">192.168.1.37</span>
+            <span class="ip-tag online">在线</span>
+          </div>
+          <div class="ip-row offline">
+            <span class="ip-dot offline"></span>
+            <span class="ip-addr">192.168.1.52</span>
+            <span class="ip-tag offline">离线</span>
+          </div>
+          <div class="ip-row online">
+            <span class="ip-dot online"></span>
+            <span class="ip-addr">192.168.1.88</span>
+            <span class="ip-tag online">在线</span>
+          </div>
+          <div class="ip-row offline">
+            <span class="ip-dot offline"></span>
+            <span class="ip-addr">192.168.1.103</span>
+            <span class="ip-tag offline">离线</span>
+          </div>
+          <div class="ip-row online">
+            <span class="ip-dot online"></span>
+            <span class="ip-addr">192.168.1.201</span>
+            <span class="ip-tag online">在线</span>
+          </div>
+          <div class="ip-row online" style="margin-bottom:0">
+            <span class="ip-dot online"></span>
+            <span class="ip-addr">192.168.1.222</span>
+            <span class="ip-tag online">在线</span>
+          </div>
+        </div>
+      </div>
+      <div class="concept-text">
+        <div class="section-label">CONCEPT</div>
+        <h2 class="section-title">什么是网上邻居？</h2>
+        <p>
+          我们提供一种基于 <strong>IP 地址与 /24 网段</strong> 的用户发现与留言机制，帮助你
+          在<strong>不依赖复杂社交关系</strong>的前提下，找到"网络上离你最近的人"。
+        </p>
+        <p>
+          当你开启该功能后，同一 IP 或同一 /24 网段内的用户可以相互留言与互动，
+          从而发现潜在的关联关系。它就像一块 <strong>"网络公告板"</strong>，
+          让同一网络环境下的用户自然相遇、按需交流。
+        </p>
+        <div class="concept-highlights">
+          <span class="chip">🚗 合租拼车</span>
+          <span class="chip">🖥 同机房用户</span>
+          <span class="chip">🏘 同小区邻居</span>
+          <span class="chip">🔒 无需位置权限</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Use Cases -->
+<section id="cases">
+  <div class="section-inner">
+    <div class="section-label">SCENARIOS</div>
+    <h2 class="section-title">适用场景</h2>
+    <p class="section-desc">从合租拼车到技术交流，从邻里互助到纯净度查询——当你们共享同一个网段，潜在的连接就已经存在。</p>
+    <div class="cases-grid">
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(251,191,36,.12)">🚗</div>
+        <h4>合租 / 拼车车友</h4>
+        <p>发现同一网段内的拼车用户，了解拼车密度、使用体验，还能聊聊通勤路线和费用分摊心得。</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(59,130,246,.1)">🖥</div>
+        <h4>同品牌 / 同机房用户</h4>
+        <p>快速识别共享网络或相同服务商的使用者。交流 VPS 搭建经验、网络延迟优化、线路质量对比。</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(16,185,129,.1)">🏘</div>
+        <h4>同小区 / 同办公区域</h4>
+        <p>在同一局域网或宽带出口下，更容易建立本地联系。邻里互助、二手交易、社区活动一网打尽。</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(139,92,246,.1)">📡</div>
+        <h4>IP 纯净度查询</h4>
+        <p>了解同一 IP 或网段下有哪些用户在使用，判断 IP 的纯净度、稳定性，避免滥用风险。</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(239,68,68,.1)">🤝</div>
+        <h4>临时协作</h4>
+        <p>在会议、活动、临时办公场景下，与同一出口 IP 的用户建立短暂连接，快速完成协作。</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon" style="background:rgba(245,158,11,.1)">💬</div>
+        <h4>兴趣交流</h4>
+        <p>在同一个网络环境中找到兴趣相投的人——游戏开黑、影音分享、技术讨论，让网络不再冷冰冰。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Design Philosophy -->
+<section id="philosophy">
+  <div class="section-inner">
+    <div class="section-label">PHILOSOPHY</div>
+    <h2 class="section-title">设计理念</h2>
+    <p class="section-desc">我们不搞算法推荐，不做社交评分——仅凭网络本身的属性，让邻近的人自然相遇。</p>
+    <div class="phil-grid">
+      <div class="phil-card">
+        <div class="phil-num" style="background:linear-gradient(135deg,#F59E0B,#D97706)">1</div>
+        <h4>弱关系连接</h4>
+        <p>不需要关注、加好友，也能建立低门槛的交流。同一网段即是入场券，每一条留言都是一次新的连接。</p>
+      </div>
+      <div class="phil-card">
+        <div class="phil-num" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">2</div>
+        <h4>地理与网络双重邻近</h4>
+        <p>IP 网段天然反映真实的网络与物理接近性——同机房、同宽带、同小区，无需额外上传位置信息。</p>
+      </div>
+      <div class="phil-card">
+        <div class="phil-num" style="background:linear-gradient(135deg,#10B981,#059669)">3</div>
+        <h4>去中心化发现</h4>
+        <p>无需中心化的位置上报，无需上传 GPS 坐标。利用网络自身的拓扑结构完成用户发现，降低隐私暴露风险。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-label">HOW IT WORKS</div>
+    <h2 class="section-title">工作原理</h2>
+    <p class="section-desc">三步走，你就能和同一网段内的邻居们聊起来。</p>
+    <div class="steps-grid">
+      <div class="step">
+        <span class="step-icon">🌐</span>
+        <h4>检测你的 IP 网段</h4>
+        <p>系统自动检测你的公网 IP，并取 /24 网段作为"社区"标识。全过程无需你手动输入任何信息。</p>
+      </div>
+      <div class="step">
+        <span class="step-icon">👥</span>
+        <h4>发现同网段邻居</h4>
+        <p>同一 /24 网段内的其他已开启功能的用户将出现在你的邻居列表中，可以看到他们在公告板的留言。</p>
+      </div>
+      <div class="step">
+        <span class="step-icon">✍️</span>
+        <h4>留言互动</h4>
+        <p>在"网络公告板"上留下你想说的话——可以是求助、分享、拼车邀约，邻居们会看到的。按需交流，随缘相遇。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Demo Bulletin Board -->
+<section id="demo">
+  <div class="section-inner">
+    <div class="section-label">DEMO</div>
+    <h2 class="section-title">网络公告板</h2>
+    <p class="section-desc">这是你的 /24 网段社区公告板。同一网段的邻居们都在这里留下足迹。</p>
+    <div class="bulletin-demo">
+      <div class="bulletin-title">📋 192.168.1.0/24 社区公告板</div>
+      <div class="bulletin-sub">与你共享同一 /24 网段的 <strong>5</strong> 位邻居在线</div>
+      <div class="bulletin-board" id="bulletin-board">
+        <div class="msg">
+          <div class="msg-avatar" style="background:linear-gradient(135deg,#F59E0B,#D97706)">拼</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-name">拼车小能手</span>
+              <span class="msg-ip">192.168.1.14</span>
+            </div>
+            <div class="msg-text">每天早上 8:00 从桃源村出发去科技园，有没有顺路的小伙伴一起拼车？本人有车，aaa分摊油费 🚗</div>
+          </div>
+          <span class="msg-time">2 分钟前</span>
+        </div>
+        <div class="msg">
+          <div class="msg-avatar" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">服</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-name">服务器老张</span>
+              <span class="msg-ip">192.168.1.88</span>
+            </div>
+            <div class="msg-text">这一段的日本 CN2 GIA 线路最近稳吗？我刚搬过来，延迟感觉比我之前那台低了不少 🖥</div>
+          </div>
+          <span class="msg-time">15 分钟前</span>
+        </div>
+        <div class="msg">
+          <div class="msg-avatar" style="background:linear-gradient(135deg,#10B981,#059669)">邻</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-name">小区热心人</span>
+              <span class="msg-ip">192.168.1.37</span>
+            </div>
+            <div class="msg-text">各位邻居，小区地下车库的洗车店搬走了，有人知道哪里还方便洗车吗？🏘</div>
+          </div>
+          <span class="msg-time">1 小时前</span>
+        </div>
+        <div class="msg-input-row">
+          <input class="msg-input" placeholder="说点什么…" id="msgInput">
+          <button class="msg-btn" onclick="postMsg()">发布</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="section-inner">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">常见问题</h2>
+    <p class="section-desc">你可能想了解的一些事情。</p>
+    <div class="faq-list">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <span>我的 IP 地址会被暴露给其他人吗？</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">不会。你只会看到"同 /24 网段"这个概念，系统不会展示你的完整 IP 地址给其他用户。所有展示均经过掩码处理，确保隐私安全。</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <span>如果我的 IP 经常变化怎么办？</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">当你的 IP 发生变化时，系统会自动检测并切换到新的 /24 网段社区。你可以选择是否保留在原社区的留言记录。</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <span>同一个 /24 网段能有多少用户？</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">/24 网段理论上最多包含 254 个 IP 地址，但实际活跃用户数量取决于该网段的使用情况。运营商大出口 NAT 下可能有数百甚至上千用户，而家庭宽带通常只有少数几个人。</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <span>可以屏蔽某些用户吗？</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">可以。你可以屏蔽特定用户的消息，被屏蔽的用户不会知道。同时我们也设置了举报机制，对于恶意行为我们会进行社区封禁。</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <span>如何关闭这个功能？</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">你可以在设置中一键关闭"网上邻居"功能。关闭后，系统将停止检测你的 IP 网段，你的留言将变为匿名状态，其他用户无法再看到你的任何信息。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-brand">网上邻居</div>
+  <p class="footer-ipsum">
+    基于 IP 网段的邻近用户发现功能。<br>
+    让同一网络环境下的你，自然相遇。
+  </p>
+  <p>Made with ❤️ by EasonYin · 无需位置 · 无需关注 · 只靠网线</p>
+</footer>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // Navbar scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  // FAQ toggle
+  function toggleFaq(el) {
+    el.classList.toggle('open');
+  }
+
+  // Simulated message posting
+  function postMsg() {
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const board = document.getElementById('bulletin-board');
+    const inputRow = board.querySelector('.msg-input-row');
+    const msg = document.createElement('div');
+    msg.className = 'msg';
+    msg.style.opacity = '0';
+    msg.style.transition = 'opacity .4s';
+    const colors = [
+      'linear-gradient(135deg,#8B5CF6,#7C3AED)',
+      'linear-gradient(135deg,#EF4444,#DC2626)',
+      'linear-gradient(135deg,#F59E0B,#D97706)',
+    ];
+    const icons = ['网', '邻', '你'];
+    const idx = Math.floor(Math.random() * colors.length);
+    msg.innerHTML = `
+      <div class="msg-avatar" style="background:${colors[idx]}">${icons[idx]}</div>
+      <div class="msg-body">
+        <div class="msg-header">
+          <span class="msg-name">邻居 · ${Math.random().toString(36).slice(2,6)}</span>
+          <span class="msg-ip">192.168.1.${Math.floor(Math.random() * 254 + 1)}</span>
+        </div>
+        <div class="msg-text">${text}</div>
+      </div>
+      <span class="msg-time">刚刚</span>
+    `;
+    board.insertBefore(msg, inputRow);
+    input.value = '';
+    setTimeout(() => msg.style.opacity = '1', 10);
+    showToast('留言已发布到社区公告板 ✨');
+  }
+
+  function showToast(text) {
+    const t = document.getElementById('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(t._hide);
+    t._hide = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // Intersection Observer for scroll animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: .1 });
+
+  document.querySelectorAll('.case-card, .phil-card, .step').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity .5s ease, transform .5s ease';
+    observer.observe(el);
+  });
+</script>
+
+</body>
+</html>
